@@ -278,7 +278,7 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
       <header>
         <div className="flex items-center justify-between">
           <div className="flex items-baseline">
-            <span className="title text-gradient">ChatGPT</span>
+            <span className="title text-gradient">Tutor AI Premium</span>
             <a
               href="https://github.com/GPTGenius/chatgpt-vercel"
               target="_blank"

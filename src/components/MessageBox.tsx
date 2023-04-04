@@ -1,4 +1,5 @@
-import { FC, useContext, useEffect } from 'react';
+import { FC, useCallback, useContext, useEffect } from 'react';
+import throttle from 'lodash.throttle';
 import GlobalContext from '@contexts/global';
 import { ConversationMode, Message } from '@interfaces';
 import markdown from '@utils/markdown';
@@ -24,25 +25,32 @@ const MessageItem: FC<{ message: Message }> = ({ message }) => {
             ? 'bg-gradient text-white rounded-br-none'
             : 'rounded-bl-none bg-[#f1f2f6]'
         } break-words overflow-hidden rounded-[20px]`}
-      ></div>
+      />
     </div>
   );
 };
 
 const MessageBox: FC<{
+  streamMessage: string;
   messages: Message[];
-  loading: boolean;
   mode: ConversationMode;
-}> = ({ messages, loading, mode }) => {
+}> = ({ streamMessage, messages, mode }) => {
   const { i18n } = useContext(GlobalContext);
 
-  const handleAutoScroll = () => {
-    const element = document.querySelector('#content');
-    element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'end',
-    });
-  };
+  const handleAutoScroll = useCallback(
+    throttle(() => {
+      const element = document.querySelector('#content');
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end',
+      });
+    }, 300),
+    []
+  );
+
+  useEffect(() => {
+    handleAutoScroll();
+  }, [streamMessage]);
 
   useEffect(() => {
     const clock = setTimeout(() => {
@@ -77,11 +85,9 @@ const MessageBox: FC<{
       {messages.map((message, index) => (
         <MessageItem key={index} message={message} />
       ))}
-      {loading && (
-        <div className="loading text-center text-gray-400">
-          {i18n.status_loading}
-        </div>
-      )}
+      {streamMessage ? (
+        <MessageItem message={{ role: 'assistant', content: streamMessage }} />
+      ) : null}
     </div>
   );
 };

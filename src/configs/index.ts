@@ -1,3 +1,5 @@
+import { GlobalConfig } from '@interfaces';
+
 export const globalConfigLocalKey = 'GLOBAL_CONFIG_LOCAL';
 export const localConversationKey = 'LOCAL_CONVERSATION';
 
@@ -14,3 +16,19 @@ export const supportedModels = [
 export type SupportedModel = (typeof supportedModels)[number];
 
 export const defaultModel: SupportedModel = 'gpt-3.5-turbo';
+
+// From https://platform.openai.com/docs/api-reference/images/create
+export const supportedImgSizes = ['256x256', '512x512', '1024x1024'] as const;
+
+export type SupportedImgSize = (typeof supportedImgSizes)[number];
+
+export const defaultGloablConfig: GlobalConfig = {
+  openAIApiKey: '',
+  model: defaultModel,
+  save: false,
+  continuous: true,
+  temperature: 1,
+  imagesCount: 1,
+  imageSize: '256x256',
+  lang: 'en',
+};

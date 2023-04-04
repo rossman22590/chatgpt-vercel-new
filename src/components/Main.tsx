@@ -1,18 +1,19 @@
 import { FC, useEffect, useState } from 'react';
 import GlobalContext from '@contexts/global';
 import {
-  defaultModel,
+  defaultGloablConfig,
   globalConfigLocalKey,
   localConversationKey,
 } from '@configs';
 import type { Conversation, GlobalConfig, Lang, Message } from '@interfaces';
-import type { I18n } from '@utils/i18n';
+import { getI18n } from '@utils/i18n';
 import { Tooltip } from 'antd';
 import MessageBox from './MessageBox';
 import MessageInput from './MessageInput';
 import GlobalConfigs from './GlobalConfigs';
 import ClearMessages from './ClearMessages';
 import ConversationTabs from './ConversationTabs';
+import LanguageSwitch from './LanguageSwitch';
 
 const defaultConversation: Omit<Conversation, 'title'> = {
   id: '1',
@@ -21,9 +22,14 @@ const defaultConversation: Omit<Conversation, 'title'> = {
   createdAt: Date.now(),
 };
 
-const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
+const Main: FC<{ lang: Lang }> = ({ lang }) => {
   // input text
   const [text, setText] = useState('');
+
+  // gloabl configs
+  const [configs, setConfigs] = useState<Partial<GlobalConfig>>({});
+
+  const i18n = getI18n(configs.lang ?? 'en');
 
   // chat informations
   const [currentTab, setCurrentTab] = useState<string>('1');
@@ -35,17 +41,11 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
       title: i18n.status_empty,
     },
   });
+  const [streamMessageMap, setStreamMessageMap] = useState<
+    Record<string, string>
+  >({});
 
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
-
-  // gloabl configs
-  const [configs, setConfigs] = useState<GlobalConfig>({
-    openAIApiKey: '',
-    model: defaultModel,
-    save: false,
-    continuous: true,
-    imagesCount: 1,
-  });
 
   // prompt
   const [showPrompt, setShowPrompt] = useState(false);
@@ -68,8 +68,10 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
       ),
       key: conversation.id,
     }));
-  const currentMessages = conversations[currentTab]?.messages ?? [];
-  const currentMode = conversations[currentTab]?.mode ?? 'text';
+  const messages = conversations[currentTab]?.messages ?? [];
+  const mode = conversations[currentTab]?.mode ?? 'text';
+  const stremMessage = streamMessageMap[currentTab] ?? '';
+  const loading = loadingMap[currentTab];
 
   // media query
   useEffect(() => {
@@ -80,12 +82,17 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
   }, []);
 
   useEffect(() => {
+    const defaultConfigs = {
+      ...defaultGloablConfig,
+      lang,
+    };
     // read from localstorage in the first time
     const localConfigsStr = localStorage.getItem(globalConfigLocalKey);
     if (localConfigsStr) {
       try {
         const localConfigs = JSON.parse(localConfigsStr);
         setConfigs((currentConfigs) => ({
+          ...defaultConfigs,
           ...currentConfigs,
           ...localConfigs,
         }));
@@ -113,8 +120,10 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
           }
         }
       } catch (e) {
-        //
+        setConfigs(defaultConfigs);
       }
+    } else {
+      setConfigs(defaultConfigs);
     }
   }, []);
 
@@ -127,15 +136,15 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
     }
   }, [conversations, configs.save]);
 
-  const updateMessages = (messages: Message[]) => {
+  const updateMessages = (msgs: Message[]) => {
     setConversations((msg) => ({
       ...msg,
       [currentTab]: {
         ...conversations[currentTab],
-        messages,
-        ...(messages.length > 0
+        messages: msgs,
+        ...(msgs.length > 0
           ? {
-              title: messages[0].content,
+              title: msgs[0].content,
             }
           : {}),
       },
@@ -151,7 +160,7 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
         createdAt: Date.now(),
       },
     ];
-    const allMessages: Message[] = currentMessages.concat(input);
+    const allMessages: Message[] = messages.concat(input);
     updateMessages(allMessages);
     setText('');
     setLoadingMap((map) => ({
@@ -165,24 +174,53 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
           key: configs.openAIApiKey,
           model: configs.model,
           messages: configs.continuous ? allMessages : input,
+          temperature: configs.temperature ?? 1,
         }),
       });
-      const { data, msg } = await res.json();
-      if (res.status < 400) {
+      if (res.status < 400 && res.ok) {
+        const stream = res.body;
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        let tempMessage = '';
+        while (true) {
+          const { value, done } = await reader.read();
+          if (value) {
+            const char = decoder.decode(value);
+            if (char === '\n' && tempMessage.endsWith('\n')) {
+              continue;
+            }
+            if (char) {
+              tempMessage += char;
+              // eslint-disable-next-line no-loop-func
+              setStreamMessageMap((map) => ({
+                ...map,
+                [current]: tempMessage,
+              }));
+            }
+          }
+          if (done) {
+            break;
+          }
+        }
         updateMessages(
           allMessages.concat([
             {
-              ...data,
+              role: 'assistant',
+              content: tempMessage,
               createdAt: Date.now(),
             },
           ])
         );
+        setStreamMessageMap((map) => ({
+          ...map,
+          [current]: '',
+        }));
       } else {
         updateMessages(
           allMessages.concat([
             {
               role: 'assistant',
-              content: `Error: ${msg || 'Unknown'}`,
+              content: `Error: ${res.statusText || 'Unknown'}`,
               createdAt: Date.now(),
             },
           ])
@@ -207,7 +245,7 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
 
   const sendImageChatMessages = async (content: string) => {
     const current = currentTab;
-    const allMessages: Message[] = currentMessages.concat([
+    const allMessages: Message[] = messages.concat([
       {
         role: 'user',
         content,
@@ -226,7 +264,7 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
         body: JSON.stringify({
           key: configs.openAIApiKey,
           prompt: content,
-          size: '256x256',
+          size: configs.imageSize || '256x256',
           n: configs.imagesCount || 1,
         }),
       });
@@ -274,14 +312,17 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
   };
 
   return (
-    <GlobalContext.Provider value={{ i18n, lang, isMobile }}>
+    <GlobalContext.Provider value={{ i18n, configs, isMobile }}>
       <header>
         <div className="flex items-center justify-between">
           <div className="flex items-baseline">
             <span className="title text-gradient">Tutor AI Premium</span>
            
           </div>
-          <GlobalConfigs configs={configs} setConfigs={setConfigs} />
+          <div className="flex items-center">
+            <LanguageSwitch />
+            <GlobalConfigs setConfigs={setConfigs} />
+          </div>
         </div>
         <ConversationTabs
           tabs={tabs}
@@ -291,24 +332,29 @@ const Main: FC<{ i18n: I18n; lang: Lang }> = ({ i18n, lang }) => {
         />
       </header>
       <MessageBox
-        messages={currentMessages}
-        loading={loadingMap[currentTab]}
-        mode={currentMode}
+        streamMessage={stremMessage}
+        messages={messages}
+        mode={mode}
       />
       <footer>
+        {loading ? (
+          <div className="loading absolute top-1 text-center translate-x-[-50%] left-1/2 text-gray-400">
+            {i18n.status_loading}
+          </div>
+        ) : null}
         <MessageInput
           text={text}
           setText={setText}
-          showPrompt={showPrompt && currentMode !== 'image'}
+          showPrompt={showPrompt && mode !== 'image'}
           setShowPrompt={setShowPrompt}
           onSubmit={async (message: string) => {
-            if (currentMode === 'image') {
+            if (mode === 'image') {
               sendImageChatMessages(message);
             } else {
               sendTextChatMessages(message);
             }
           }}
-          loading={loadingMap[currentTab]}
+          loading={loading}
         />
         <div className="flex items-center justify-between pr-8">
           <Tooltip title={i18n.action_prompt}>

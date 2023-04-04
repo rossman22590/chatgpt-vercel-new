@@ -11,7 +11,9 @@ const PromptSelect: FC<{
   onSelect: (prompt: string) => void;
   children?: ReactNode;
 }> = ({ keyword, showPrompt, onSelect, children }) => {
-  const { lang } = useContext(GlobalContext);
+  const {
+    configs: { lang },
+  } = useContext(GlobalContext);
 
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [filterPrompts, setFilterPrompts] = useState<Prompt[]>([]);
@@ -19,6 +21,7 @@ const PromptSelect: FC<{
   useEffect(() => {
     const getPrompt = async () => {
       let promptList: Prompt[] = [];
+      if (!lang) return;
       try {
         if (lang === 'zh') {
           promptList = (await import('prompts/prompt_zh.json')).default;
@@ -32,7 +35,7 @@ const PromptSelect: FC<{
     };
 
     getPrompt();
-  }, []);
+  }, [lang]);
 
   // filter prompts by keyword
   useEffect(() => {
@@ -60,6 +63,7 @@ const PromptSelect: FC<{
 
   return (
     <Dropdown
+      overlayClassName="input-prompt"
       menu={{ items }}
       placement="topLeft"
       open={items.length > 0 && showPrompt}

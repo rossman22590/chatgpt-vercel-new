@@ -1,4 +1,4 @@
-import { SupportedModel } from '@configs';
+import { SupportedImgSize, SupportedModel } from '@configs';
 
 export interface Message {
   content: string;
@@ -8,6 +8,8 @@ export interface Message {
 }
 
 export type ConversationMode = 'text' | 'image';
+
+export type Lang = 'zh' | 'en';
 
 export interface Conversation {
   id: string;
@@ -23,10 +25,11 @@ export interface GlobalConfig {
   model: SupportedModel;
   save: boolean;
   continuous: boolean;
+  temperature: number;
   imagesCount: number;
+  imageSize: SupportedImgSize;
+  lang: Lang;
 }
-
-export type Lang = 'zh' | 'en';
 
 export interface Prompt {
   act: string;

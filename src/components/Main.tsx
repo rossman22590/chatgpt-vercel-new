@@ -173,7 +173,9 @@ const Main: FC<{ lang: Lang }> = ({ lang }) => {
         body: JSON.stringify({
           key: configs.openAIApiKey,
           model: configs.model,
-          messages: configs.continuous ? allMessages : input,
+          messages: configs.continuous
+            ? allMessages.slice(-1 * (configs.messagesCount ?? 4) - 1)
+            : input,
           temperature: configs.temperature ?? 1,
         }),
       });
@@ -182,6 +184,7 @@ const Main: FC<{ lang: Lang }> = ({ lang }) => {
         const reader = stream.getReader();
         const decoder = new TextDecoder();
         let tempMessage = '';
+        // eslint-disable-next-line no-constant-condition
         while (true) {
           const { value, done } = await reader.read();
           if (value) {

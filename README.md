@@ -17,7 +17,7 @@ English | [简体中文](./README.zh-CN.md)
 ## Introduction
 Create a private ChatGPT website with one-click for free using Vercel, support muti **text** / **images generation** conversations. Powered by OpenAI API GPT-4/3.5 and Vercel.
 
-## Features
+## Features 
 - ⚡ Deploy quickly and for free using Vercel
 - 💬 Text conversation with the ability to switch models and set context length
 - 🎨 Image generation conversation supports the `DALL-E` and `Midjourney` models. It also allows for the adjustment of image size and count.

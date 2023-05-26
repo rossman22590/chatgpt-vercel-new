@@ -83,7 +83,7 @@ const Sidebar: FC<{
       <div className="p-4 mt-2 flex items-baseline justify-between">
         <span className="text-3xl text-gradient font-[800]">PixGen+</span>
         <a
-          href="#"
+          href="https://myapps.ai"
           target="_blank"
           rel="noreferrer"
         >

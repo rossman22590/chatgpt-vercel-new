@@ -80,9 +80,8 @@ const Sidebar: FC<{
 
   return (
     <div className="flex flex-col h-full bg-white">
-   <div className="flex flex-col h-full bg-white">
       <div className="p-4 mt-2 flex items-baseline justify-between">
-        <span className="text-3xl text-gradient font-[800]">PixGen Plus+</span>
+        <span className="text-3xl text-gradient font-[800]">ChatGPT</span>
         <a
           href="https://github.com/GPTGenius/chatgpt-vercel"
           target="_blank"
